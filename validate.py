@@ -1,6 +1,9 @@
-import sqlite3, os
+import sqlite3, os, sys
 
-path = os.path.join(os.environ['USERPROFILE'], '.rdq', 'review_index.db')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from leitner import next_box, BOX_INTERVALS
+
+path = os.path.join(os.path.expanduser('~'), '.rdq', 'review_index.db')
 os.makedirs(os.path.dirname(path), exist_ok=True)
 if os.path.exists(path):
     os.remove(path)
@@ -113,6 +116,22 @@ if r:
 else:
     print('  FAIL')
 
+print()
+print('=== 7. 验证: leitner.py 跳箱逻辑 ===')
+# confirmed + self, 🔴, box 1 → box 3 (capped)
+b, d = next_box(1, 'confirmed', 'red', 'self')
+assert b == 3, f'self + red: expected box 3, got {b}'
+# confirmed + prompted, 🟡, box 1 → box 2
+b, d = next_box(1, 'confirmed', 'yellow', 'prompted')
+assert b == 2, f'prompted + yellow: expected box 2, got {b}'
+# uncertain, box 5 → box 1
+b, d = next_box(5, 'uncertain')
+assert b == 1, f'uncertain: expected box 1, got {b}'
+# clarified, box 5 → box 2
+b, d = next_box(5, 'clarified')
+assert b == 2, f'clarified: expected box 2, got {b}'
+print('  4/4 assertions PASS')
+
 con.close()
 print()
-print('ALL 6 VALIDATIONS COMPLETE')
+print('ALL 7 VALIDATIONS COMPLETE')

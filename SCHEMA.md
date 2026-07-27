@@ -67,7 +67,10 @@ CREATE INDEX idx_subject_item ON review_index(subject, item_id);
 CREATE INDEX idx_mc_id ON review_index(mc_id);
 ```
 
-### Leitner Box 參數（硬編碼於 Scheduler 中，非資料表）
+### Leitner Box 參數
+
+實作位於 `leitner.py`，由 RDQ-Learn-Student Phase 7 寫入時呼叫。
+Scheduler 只讀已算好的 box/next_review，不執行跳箱計算。
 
 | Box | 間隔（天） | 🔴 上限 | 跳箱規則 |
 |-----|-----------|---------|---------|
