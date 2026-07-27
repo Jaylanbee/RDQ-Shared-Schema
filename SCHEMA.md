@@ -32,11 +32,10 @@ CREATE TABLE review_index (
 
     -- 狀態欄位（由 RDQ 判定）
     status        TEXT    NOT NULL CHECK (status IN ('confirmed', 'uncertain', 'clarified')),
-    source        TEXT    CHECK (source IN ('self', 'prompted', 'clarified')),
+    source        TEXT    CHECK (source IN ('self', 'prompted')),
     --  self      = ✅ 自己說出來
     --  prompted  = ✅ 選項認出來
-    --  clarified = ⚠️ 迷思已澄清（source 同為 clarified）
-    --  NULL      = ❓ uncertain（此時 source 不適用）
+    --  NULL      = ❓ uncertain 或 ⚠️ clarified（排程只讀 status，不讀 source）
     --  ⚠️ 迷思已澄清的 Leitner：固定 box 2（+3 天），不受 priority 影響
 
     -- 用於 Leitner 排程
@@ -45,6 +44,7 @@ CREATE TABLE review_index (
 
     -- 用於診斷
     mc_id         TEXT,              -- 迷思代碼，如 "mc_math_002"；NULL = 無對應迷思
+    mc_probe_count INTEGER DEFAULT 0, -- 此 mc_id 被當作迷思探測題問過的次數（防題目老化）
 
     -- 日期時間
     date          TEXT    NOT NULL,  -- 覆盤日期 ISO 8601
@@ -53,6 +53,7 @@ CREATE TABLE review_index (
 
     -- 範圍爭議
     scope_disputed INTEGER DEFAULT 0,  -- 0=無爭議，1=學生認為在範圍內但AI無法確認
+    scope_confirmed INTEGER DEFAULT 0,  -- 0=未確認，1=範圍爭議經L1確認後學生答對
 
     -- 檔案路徑
     file_path     TEXT,              -- reviews/{subject}/{topic_slug}_{date}.md 相對路徑
@@ -79,7 +80,7 @@ CREATE INDEX idx_mc_id ON review_index(mc_id);
 - ❓（status='uncertain'）→ 無論目前在哪一箱，**直接回 box 1**
 - ✓（source='self'）→ 跳 +2 箱（上限 box 5），🔴 鎖在 box 3 不超過
 - ◇（source='prompted'）→ 跳 +1 箱（上限 box 5），🔴 鎖在 box 3 不超過
-- ⚠️（status='clarified'）→ **固定 box 2（+3 天）**，不受 priority 或原本 box 影響。迷思復發率高，需比普通 ❓ 更快回訪驗證
+- ⚠️（status='clarified'）→ **固定 box 2（+3 天）**，不受 priority 或原本 box 影響。迷思復發率高，需比普通 ❓ 更快回訪驗證。source=null（排程只讀 status）
 
 ---
 
@@ -215,4 +216,5 @@ CREATE TABLE exam_weights (
 | 版本 | 日期 | 變更 |
 |-----|------|------|
 | 1.0 | 2026-07-27 | 初始契約定義 |
-| 1.1 | 2026-07-27 | status 兩態→三態（+clarified），source 加 clarified，加 scope_disputed 欄位，Leitner 補 ⚠️ 規則 |
+| 1.1 | 2026-07-27 | status 兩態→三態（+clarified），source 收回（self|prompted），加 scope_disputed / scope_confirmed / mc_probe_count |
+| 1.2 | 2026-07-27 | source 收回（移除 clarified 枚舉），加 scope_confirmed, mc_probe_count 欄位，刪外層 priority/next_review_date/mode_used |

@@ -15,12 +15,14 @@ CREATE TABLE review_index (
     subject TEXT NOT NULL, topic TEXT NOT NULL, item_id TEXT NOT NULL,
     quadrant TEXT,
     status TEXT NOT NULL CHECK (status IN ('confirmed','uncertain','clarified')),
-    source TEXT CHECK (source IN ('self','prompted','clarified')),
+    source TEXT CHECK (source IN ('self','prompted')),
     priority TEXT NOT NULL CHECK (priority IN ('red','yellow','green')),
     box INTEGER NOT NULL DEFAULT 1 CHECK (box BETWEEN 1 AND 5),
     mc_id TEXT,
+    mc_probe_count INTEGER DEFAULT 0,
     date TEXT NOT NULL, last_reviewed TEXT NOT NULL, next_review TEXT NOT NULL,
     scope_disputed INTEGER DEFAULT 0,
+    scope_confirmed INTEGER DEFAULT 0,
     file_path TEXT,
     UNIQUE(subject, topic, item_id, date)
 );
@@ -31,29 +33,30 @@ CREATE INDEX IF NOT EXISTS idx_mc_id ON review_index(mc_id);
 
 rows = [
     # confirmed/self (✅ 自己說出, 🔴 → box 3, +7d)
-    (None,'math','二次函数','math_ch3_002','III','confirmed','self','red',3,None,'2026-07-27','2026-07-27','2026-08-03',0,'reviews/math/ercihanshu_2026-07-27.md'),
-    # uncertain (❓ 不確定 → box 1, +1d)
-    (None,'math','二次函数','math_ch3_001','II','uncertain',None,'red',1,'mc_math_001','2026-07-27','2026-07-27','2026-07-28',0,'reviews/math/ercihanshu_2026-07-27.md'),
+    (None,'math','二次函数','math_ch3_002','III','confirmed','self','red',3,None,0,'2026-07-27','2026-07-27','2026-08-03',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
+    # uncertain (❓ 不確定 → box 1, +1d, source=null)
+    (None,'math','二次函数','math_ch3_001','II','uncertain',None,'red',1,'mc_math_001',0,'2026-07-27','2026-07-27','2026-07-28',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
     # confirmed/prompted (◇ 選項認出 → +1 box, 🟡 → box 2, +3d)
-    (None,'math','二次函数','math_ch3_005','II','confirmed','prompted','yellow',2,'mc_math_005','2026-07-27','2026-07-27','2026-07-30',0,'reviews/math/ercihanshu_2026-07-27.md'),
-    # clarified ⚠️ (迷思已澄清 → 固定 box 2, +3d)
-    (None,'science','guanghe','sci_ch4_003','II','clarified','clarified','red',2,'mc_sci_006','2026-07-27','2026-07-27','2026-07-30',0,'reviews/science/guanghe_2026-07-27.md'),
+    (None,'math','二次函数','math_ch3_005','II','confirmed','prompted','yellow',2,'mc_math_005',0,'2026-07-27','2026-07-27','2026-07-30',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
+    # clarified ⚠️ (迷思已澄清 → 固定 box 2, +3d, source=null, mc_probe_count=1)
+    (None,'science','guanghe','sci_ch4_003','II','clarified',None,'red',2,'mc_sci_006',1,'2026-07-27','2026-07-27','2026-07-30',0,0,'reviews/science/guanghe_2026-07-27.md'),
     # confirmed/self 🟢 (→ box 5, +35d)
-    (None,'math','二次函数','math_ch3_003','I','confirmed','self','green',5,None,'2026-06-01','2026-06-01','2026-07-06',0,'reviews/math/ercihanshu_2026-06-01.md'),
-    # scope_disputed (學生認在範圍內但AI無法確認)
-    (None,'social','japan','soc_ch2_003','IV','confirmed','prompted','yellow',3,'mc_soc_003','2026-07-20','2026-07-20','2026-07-27',1,'reviews/social/japan_2026-07-20.md'),
+    (None,'math','二次函数','math_ch3_003','I','confirmed','self','green',5,None,0,'2026-06-01','2026-06-01','2026-07-06',0,0,'reviews/math/ercihanshu_2026-06-01.md'),
+    # scope_disputed + scope_confirmed (學生存疑但經L1確認答對)
+    (None,'social','japan','soc_ch2_003','IV','confirmed','self','yellow',3,'mc_soc_003',0,'2026-07-20','2026-07-20','2026-07-27',1,1,'reviews/social/japan_2026-07-20.md'),
     # uncertain ❓ (到期)
-    (None,'english','Unit 3','eng_u3_001','II','uncertain',None,'yellow',1,'mc_eng_001','2026-07-26','2026-07-26','2026-07-27',0,'reviews/english/Unit3_2026-07-26.md'),
+    (None,'english','Unit 3','eng_u3_001','II','uncertain',None,'yellow',1,'mc_eng_001',0,'2026-07-26','2026-07-26','2026-07-27',0,0,'reviews/english/Unit3_2026-07-26.md'),
 ]
 for r in rows:
-    cur.execute('INSERT INTO review_index VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', r)
+    cur.execute('INSERT INTO review_index VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', r)
 con.commit()
 
 print('=== 1. Scheduler: 到期项目 ===')
 cur.execute("SELECT item_id, subject, status, source, priority, box, next_review FROM review_index WHERE next_review <= '2026-07-27' ORDER BY priority DESC, next_review ASC")
 for row in cur.fetchall():
     tag = {'confirmed':'✅','uncertain':'❓','clarified':'⚠️'}.get(row[2],'?')
-    print(f'  {tag} {row[0]:20s} {row[1]:10s} {row[2]:12s} {str(row[3] or "-"):10s} pri={row[4]:6s} box={row[5]}  due={row[6]}')
+    src = row[3] if row[3] else '-'
+    print(f'  {tag} {row[0]:20s} {row[1]:10s} {row[2]:12s} source={src:10s} pri={row[4]:6s} box={row[5]}  due={row[6]}')
 
 print()
 print('=== 2. Exam-Mock: 弱点分数 (subject=math) ===')
@@ -74,32 +77,42 @@ for row in cur.fetchall():
     print(f'  {row[0]:20s} score={row[1]:5.2f}  total={row[2]}  uncertain={row[3]}')
 
 print()
-print('=== 3. Exam-Mock: 迷思频率 (all subjects) ===')
-cur.execute("SELECT mc_id, COUNT(*) AS freq FROM review_index WHERE mc_id IS NOT NULL GROUP BY mc_id ORDER BY freq DESC")
+print('=== 3. Exam-Mock: 迷思频率 ===')
+cur.execute("SELECT mc_id, COUNT(*) AS freq, MAX(mc_probe_count) AS probes FROM review_index WHERE mc_id IS NOT NULL GROUP BY mc_id ORDER BY freq DESC")
 for row in cur.fetchall():
-    print(f'  {row[0]:15s} freq={row[1]}')
+    print(f'  {row[0]:15s} freq={row[1]}  max_probes={row[2]}')
 
 print()
-print('=== 4. 验证: ⚠️ clarified 固定 box 2 (+3d) ===')
-cur.execute("SELECT item_id, status, box, next_review FROM review_index WHERE status='clarified'")
+print('=== 4. 验证: ⚠️ clarified 固定 box 2 (+3d), source=null ===')
+cur.execute("SELECT item_id, status, source, box, next_review FROM review_index WHERE status='clarified'")
 r = cur.fetchone()
 if r:
-    expected = '2026-07-30'
-    actual = r[3]
-    ok = actual == expected
-    print(f'  {r[0]:20s} box={r[2]}  next_review={actual}  expected={expected}  {"PASS" if ok else "FAIL"}')
+    src_ok = r[2] is None
+    box_ok = r[3] == 2
+    date_ok = r[4] == '2026-07-30'
+    print(f'  {r[0]:20s} box={r[3]}  next_review={r[4]}  source={r[2]}  box_ok={box_ok} date_ok={date_ok} src_null={src_ok}')
+    print(f'  {"ALL PASS" if (box_ok and date_ok and src_ok) else "FAIL"}')
 else:
     print('  FAIL: no clarified row found')
 
 print()
-print('=== 5. 验证: scope_disputed 标记 ===')
-cur.execute("SELECT item_id, scope_disputed FROM review_index WHERE scope_disputed=1")
+print('=== 5. 验证: scope_disputed + scope_confirmed ===')
+cur.execute("SELECT item_id, scope_disputed, scope_confirmed FROM review_index WHERE scope_disputed=1")
+r = cur.fetchone()
+if r and r[2] == 1:
+    print(f'  {r[0]:20s} scope_disputed={r[1]}  scope_confirmed={r[2]}  PASS')
+else:
+    print('  FAIL')
+
+print()
+print('=== 6. 验证: mc_probe_count ===')
+cur.execute("SELECT item_id, mc_probe_count FROM review_index WHERE mc_probe_count > 0")
 r = cur.fetchone()
 if r:
-    print(f'  {r[0]:20s} scope_disputed={r[1]}  PASS')
+    print(f'  {r[0]:20s} mc_probe_count={r[1]}  PASS')
 else:
-    print('  FAIL: no scope_disputed row found')
+    print('  FAIL')
 
 con.close()
 print()
-print('ALL VALIDATIONS COMPLETE')
+print('ALL 6 VALIDATIONS COMPLETE')
