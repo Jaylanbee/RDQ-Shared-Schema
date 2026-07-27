@@ -31,11 +31,13 @@ CREATE TABLE review_index (
     quadrant      TEXT,              -- I | II | III | IV  可為 NULL（未分類）
 
     -- 狀態欄位（由 RDQ 判定）
-    status        TEXT    NOT NULL CHECK (status IN ('confirmed', 'uncertain')),
-    source        TEXT    CHECK (source IN ('self', 'prompted')),
-    --  self    = ✅ 自己說出來
-    --  prompted = ✅ 選項認出來
-    --  NULL    = ❓ uncertain（此時 source 不適用）
+    status        TEXT    NOT NULL CHECK (status IN ('confirmed', 'uncertain', 'clarified')),
+    source        TEXT    CHECK (source IN ('self', 'prompted', 'clarified')),
+    --  self      = ✅ 自己說出來
+    --  prompted  = ✅ 選項認出來
+    --  clarified = ⚠️ 迷思已澄清（source 同為 clarified）
+    --  NULL      = ❓ uncertain（此時 source 不適用）
+    --  ⚠️ 迷思已澄清的 Leitner：固定 box 2（+3 天），不受 priority 影響
 
     -- 用於 Leitner 排程
     priority      TEXT    NOT NULL CHECK (priority IN ('red', 'yellow', 'green')),
@@ -48,6 +50,9 @@ CREATE TABLE review_index (
     date          TEXT    NOT NULL,  -- 覆盤日期 ISO 8601
     last_reviewed TEXT    NOT NULL,  -- 同 date（保留欄位以便未來更新同一 item）
     next_review   TEXT    NOT NULL,  -- 下次複習日期 ISO 8601
+
+    -- 範圍爭議
+    scope_disputed INTEGER DEFAULT 0,  -- 0=無爭議，1=學生認為在範圍內但AI無法確認
 
     -- 檔案路徑
     file_path     TEXT,              -- reviews/{subject}/{topic_slug}_{date}.md 相對路徑
@@ -74,6 +79,7 @@ CREATE INDEX idx_mc_id ON review_index(mc_id);
 - ❓（status='uncertain'）→ 無論目前在哪一箱，**直接回 box 1**
 - ✓（source='self'）→ 跳 +2 箱（上限 box 5），🔴 鎖在 box 3 不超過
 - ◇（source='prompted'）→ 跳 +1 箱（上限 box 5），🔴 鎖在 box 3 不超過
+- ⚠️（status='clarified'）→ **固定 box 2（+3 天）**，不受 priority 或原本 box 影響。迷思復發率高，需比普通 ❓ 更快回訪驗證
 
 ---
 
@@ -209,3 +215,4 @@ CREATE TABLE exam_weights (
 | 版本 | 日期 | 變更 |
 |-----|------|------|
 | 1.0 | 2026-07-27 | 初始契約定義 |
+| 1.1 | 2026-07-27 | status 兩態→三態（+clarified），source 加 clarified，加 scope_disputed 欄位，Leitner 補 ⚠️ 規則 |
