@@ -3,7 +3,8 @@ import sqlite3, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from leitner import next_box, BOX_INTERVALS
 
-path = os.path.join(os.path.expanduser('~'), '.rdq', 'review_index.db')
+# 使用獨立測試 DB，不碰真實的 ~/.rdq/review_index.db
+path = os.path.join(os.path.expanduser('~'), '.rdq', 'review_index_test.db')
 os.makedirs(os.path.dirname(path), exist_ok=True)
 if os.path.exists(path):
     os.remove(path)
