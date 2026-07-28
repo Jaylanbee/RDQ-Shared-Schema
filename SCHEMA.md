@@ -1,8 +1,8 @@
 # RDQ Shared Schema — 跨 Agent 資料契約
 
 > 發行者：RDQ-Learn-Student   消費端：RDQ-Scheduler, RDQ-Exam-Mock
-> 版本：1.0
-> 更新日：2026-07-27
+> 版本：1.3
+> 更新日：2026-07-28
 
 ## 核心原則
 
@@ -45,6 +45,7 @@ CREATE TABLE review_index (
     -- 用於診斷
     mc_id         TEXT,              -- 迷思代碼，如 "mc_math_002"；NULL = 無對應迷思
     mc_probe_count INTEGER DEFAULT 0, -- 此 mc_id 被當作迷思探測題問過的次數（防題目老化）
+    mc_probe_variant TEXT,             -- 該次使用的迷思探測題變體代號，如 'a'/'b'；NULL = 未觸發迷思探測
 
     -- 日期時間
     date          TEXT    NOT NULL,  -- 覆盤日期 ISO 8601
@@ -221,3 +222,4 @@ CREATE TABLE exam_weights (
 | 1.0 | 2026-07-27 | 初始契約定義 |
 | 1.1 | 2026-07-27 | status 兩態→三態（+clarified），source 收回（self|prompted），加 scope_disputed / scope_confirmed / mc_probe_count |
 | 1.2 | 2026-07-27 | source 收回（移除 clarified 枚舉），加 scope_confirmed, mc_probe_count 欄位，刪外層 priority/next_review_date/mode_used |
+| 1.3 | 2026-XX-XX | 新增 mc_probe_variant（記錄該次使用的迷思探測題變體，供選題邏輯查詢歷史避免重複） |

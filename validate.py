@@ -23,6 +23,7 @@ CREATE TABLE review_index (
     box INTEGER NOT NULL DEFAULT 1 CHECK (box BETWEEN 1 AND 5),
     mc_id TEXT,
     mc_probe_count INTEGER DEFAULT 0,
+    mc_probe_variant TEXT,
     date TEXT NOT NULL, last_reviewed TEXT NOT NULL, next_review TEXT NOT NULL,
     scope_disputed INTEGER DEFAULT 0,
     scope_confirmed INTEGER DEFAULT 0,
@@ -36,22 +37,22 @@ CREATE INDEX IF NOT EXISTS idx_mc_id ON review_index(mc_id);
 
 rows = [
     # confirmed/self (✅ 自己說出, 🔴 → box 3, +7d)
-    (None,'math','二次函数','math_ch3_002','III','confirmed','self','red',3,None,0,'2026-07-27','2026-07-27','2026-08-03',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
+    (None,'math','二次函数','math_ch3_002','III','confirmed','self','red',3,None,0,None,'2026-07-27','2026-07-27','2026-08-03',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
     # uncertain (❓ 不確定 → box 1, +1d, source=null)
-    (None,'math','二次函数','math_ch3_001','II','uncertain',None,'red',1,'mc_math_001',0,'2026-07-27','2026-07-27','2026-07-28',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
+    (None,'math','二次函数','math_ch3_001','II','uncertain',None,'red',1,'mc_math_001',0,None,'2026-07-27','2026-07-27','2026-07-28',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
     # confirmed/prompted (◇ 選項認出 → +1 box, 🟡 → box 2, +3d)
-    (None,'math','二次函数','math_ch3_005','II','confirmed','prompted','yellow',2,'mc_math_005',0,'2026-07-27','2026-07-27','2026-07-30',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
+    (None,'math','二次函数','math_ch3_005','II','confirmed','prompted','yellow',2,'mc_math_005',0,None,'2026-07-27','2026-07-27','2026-07-30',0,0,'reviews/math/ercihanshu_2026-07-27.md'),
     # clarified ⚠️ (迷思已澄清 → 固定 box 2, +3d, source=null, mc_probe_count=1)
-    (None,'science','guanghe','sci_ch4_003','II','clarified',None,'red',2,'mc_sci_006',1,'2026-07-27','2026-07-27','2026-07-30',0,0,'reviews/science/guanghe_2026-07-27.md'),
+    (None,'science','guanghe','sci_ch4_003','II','clarified',None,'red',2,'mc_sci_006',1,None,'2026-07-27','2026-07-27','2026-07-30',0,0,'reviews/science/guanghe_2026-07-27.md'),
     # confirmed/self 🟢 (→ box 5, +35d)
-    (None,'math','二次函数','math_ch3_003','I','confirmed','self','green',5,None,0,'2026-06-01','2026-06-01','2026-07-06',0,0,'reviews/math/ercihanshu_2026-06-01.md'),
+    (None,'math','二次函数','math_ch3_003','I','confirmed','self','green',5,None,0,None,'2026-06-01','2026-06-01','2026-07-06',0,0,'reviews/math/ercihanshu_2026-06-01.md'),
     # scope_disputed + scope_confirmed (學生存疑但經L1確認答對)
-    (None,'social','japan','soc_ch2_003','IV','confirmed','self','yellow',3,'mc_soc_003',0,'2026-07-20','2026-07-20','2026-07-27',1,1,'reviews/social/japan_2026-07-20.md'),
+    (None,'social','japan','soc_ch2_003','IV','confirmed','self','yellow',3,'mc_soc_003',0,None,'2026-07-20','2026-07-20','2026-07-27',1,1,'reviews/social/japan_2026-07-20.md'),
     # uncertain ❓ (到期)
-    (None,'english','Unit 3','eng_u3_001','II','uncertain',None,'yellow',1,'mc_eng_001',0,'2026-07-26','2026-07-26','2026-07-27',0,0,'reviews/english/Unit3_2026-07-26.md'),
+    (None,'english','Unit 3','eng_u3_001','II','uncertain',None,'yellow',1,'mc_eng_001',0,None,'2026-07-26','2026-07-26','2026-07-27',0,0,'reviews/english/Unit3_2026-07-26.md'),
 ]
 for r in rows:
-    cur.execute('INSERT INTO review_index VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', r)
+    cur.execute('INSERT INTO review_index VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', r)
 con.commit()
 
 print('=== 1. Scheduler: 到期项目 ===')
@@ -132,6 +133,40 @@ b, d = next_box(5, 'clarified')
 assert b == 2, f'clarified: expected box 2, got {b}'
 print('  4/4 assertions PASS')
 
+print()
+print('=== 8. 验证: mc_probe_variant 轮替查询与选题排除逻辑 ===')
+
+def select_probe_variant(available, last_used):
+    """选题逻辑：排除上次用过的变体，若只剩一个可选则不得已重复用它"""
+    candidates = [v for v in available if v != last_used]
+    return candidates[0] if candidates else available[0]
+
+con.execute("""INSERT INTO review_index
+    (subject,topic,item_id,mc_id,mc_probe_variant,status,priority,box,date,last_reviewed,next_review)
+    VALUES ('math','二次函数','math_ch3_002','mc_math_001','a','clarified','red',2,'2026-07-20','2026-07-20','2026-07-23')""")
+con.execute("""INSERT INTO review_index
+    (subject,topic,item_id,mc_id,mc_probe_variant,status,priority,box,date,last_reviewed,next_review)
+    VALUES ('math','二次函数','math_ch3_002','mc_math_001','b','clarified','red',2,'2026-07-24','2026-07-24','2026-07-27')""")
+con.commit()
+
+last_variant = con.execute("""
+    SELECT mc_probe_variant FROM review_index
+    WHERE item_id=? AND mc_id=? ORDER BY date DESC LIMIT 1
+""", ('math_ch3_002', 'mc_math_001')).fetchone()[0]
+print(f"  查到最近一次使用的变体: {last_variant}  (预期: b)")
+assert last_variant == 'b'
+
+next_pick = select_probe_variant(['a', 'b', 'c'], last_variant)
+print(f"  三选一排除已用过的 → 选到: {next_pick}  (预期: a 或 c，不能是 b)")
+assert next_pick != 'b'
+
+# 边界情况：目前多数 mc_id 只有 1 个变体，选题逻辑不能因此挂掉
+only_one = select_probe_variant(['a'], 'a')
+print(f"  只有单一变体时，被迫重复使用: {only_one}  (预期: a，不能是空)")
+assert only_one == 'a'
+
+print('  ALL PASS')
+
 con.close()
 print()
-print('ALL 7 VALIDATIONS COMPLETE')
+print('ALL 8 VALIDATIONS COMPLETE')
