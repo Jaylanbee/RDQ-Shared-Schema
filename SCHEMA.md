@@ -222,4 +222,4 @@ CREATE TABLE exam_weights (
 | 1.0 | 2026-07-27 | 初始契約定義 |
 | 1.1 | 2026-07-27 | status 兩態→三態（+clarified），source 收回（self|prompted），加 scope_disputed / scope_confirmed / mc_probe_count |
 | 1.2 | 2026-07-27 | source 收回（移除 clarified 枚舉），加 scope_confirmed, mc_probe_count 欄位，刪外層 priority/next_review_date/mode_used |
-| 1.3 | 2026-XX-XX | 新增 mc_probe_variant（記錄該次使用的迷思探測題變體，供選題邏輯查詢歷史避免重複） |
+| 1.3 | 2026-07-28 | 新增 mc_probe_variant（記錄該次使用的迷思探測題變體，供選題邏輯查詢歷史避免重複） |
