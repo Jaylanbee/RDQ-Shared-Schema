@@ -9,13 +9,13 @@
 1. **SQLite 是唯一事實來源**（執行期狀態，不進 git）
 2. **Markdown 覆盤卡是展示層**（給人讀的，agent 之間不直接解析）
 3. **單向流**：RDQ → SQLite（寫入），SQLite → Scheduler / Exam-Mock（讀取）
-4. **資料夾隔離**：原始碼（SKILL.md, question-bank.md）在 git 中版控；`review_index.db` 在本機 `~/.rdq/` 下，不進 git
+4. **資料夾隔離**：原始碼（SKILL.md, question-bank.md）在 git 中版控；`review_index.db` 在本機 `~/.education_ecosystem/` 下，不進 git
 
 ---
 
 ## 資料庫結構
 
-資料庫路徑慣例：`~/.rdq/review_index.db`（無關各 repo 的 Git 工作目錄）
+資料庫路徑慣例：`~/.education_ecosystem/review_index.db`（可透過環境變數 `ECOSYSTEM_DB_PATH` 覆蓋）
 
 ### Table: `review_index`
 

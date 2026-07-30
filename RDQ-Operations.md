@@ -29,8 +29,8 @@
 
   → Phase 7: 寫回
     1. 對每個 item 呼叫 leitner.next_box() 算新 box 與 next_review
-    2. INSERT 到 ~/.rdq/review_index.db（append-only，不 UPDATE）
-    3. 寫覆盤卡至 ~/.rdq/reviews/{subject}/{slug}_{date}.md
+2. INSERT 到 ~/.education_ecosystem/review_index.db（append-only，不 UPDATE）
+3. 寫覆盤卡至 ~/.education_ecosystem/reviews/{subject}/{slug}_{date}.md
     若觸發迷思探測 → 記錄 mc_probe_variant
 ```
 
