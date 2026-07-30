@@ -1,0 +1,40 @@
+{
+  "status": {
+    "confirmed": "✅ 已掌握",
+    "uncertain": "❓ 待確認",
+    "clarified": "⚠️ 迷思已澄清"
+  },
+  "loss_reason": [
+    "概念錯誤",
+    "計算錯誤",
+    "圖表判讀",
+    "推理不足",
+    "看錯題"
+  ],
+  "priority": {
+    "red": "🔴 高優先（基礎概念，不會會卡住）",
+    "yellow": "🟡 中優先（細節、次要知識點）",
+    "green": "🟢 低優先（不影響後續學習）"
+  },
+  "source": {
+    "self": "✅ 自己說出來",
+    "prompted": "✅ 選項認出來"
+  },
+  "quadrant": {
+    "I": "Known Knowns — 已經記住的內容",
+    "II": "Known Unknowns — 知道自己不會的地方",
+    "III": "Unknown Knowns — 學了卻沒發現自己會了",
+    "IV": "Unknown Unknowns — 完全沒想過的關聯知識"
+  },
+  "box_intervals_days": {
+    "1": 1,
+    "2": 3,
+    "3": 7,
+    "4": 16,
+    "5": 35
+  },
+  "red_cap_box": 3,
+  "max_box": 5,
+  "db_default_path": "~/.education_ecosystem/review_index.db",
+  "env_var_name": "ECOSYSTEM_DB_PATH"
+}
